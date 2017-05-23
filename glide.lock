@@ -1,0 +1,33 @@
+hash: 3a7f3b43dfb45161e2c46270c4193106f55573fb3a1918d846121ba0ddba17f8
+updated: 2017-05-23T17:50:59.339851079+09:00
+imports:
+- name: github.com/golang/protobuf
+  version: c9c7427a2a70d2eb3bafa0ab2dc163e45f143317
+  subpackages:
+  - proto
+- name: github.com/mjibson/goon
+  version: 0ed1ebf48a18375ca62c5a033a6f5bc4c59997f4
+- name: github.com/pkg/errors
+  version: 645ef00459ed84a119197bfb8d8205042c6df63d
+- name: golang.org/x/net
+  version: da118f7b8e5954f39d0d2130ab35d4bf0e3cb344
+  subpackages:
+  - context
+- name: google.golang.org/appengine
+  version: 150dc57a1b433e64154302bdc40b6bb8aefa313a
+  subpackages:
+  - aetest
+  - datastore
+  - internal
+  - internal/app_identity
+  - internal/base
+  - internal/datastore
+  - internal/log
+  - internal/memcache
+  - internal/modules
+  - internal/remote_api
+  - internal/user
+  - log
+  - memcache
+  - user
+testImports: []

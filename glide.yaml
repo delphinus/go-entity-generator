@@ -1,0 +1,13 @@
+package: github.com/delphinus/go-entity-generator
+import:
+- package: github.com/mjibson/goon
+- package: github.com/pkg/errors
+  version: ^0.8.0
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: google.golang.org/appengine
+  version: ^1.0.0
+  subpackages:
+  - datastore
+  - log
