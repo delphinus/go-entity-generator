@@ -169,12 +169,10 @@ func filter(ctx context.Context, entities []interface{}, err error) ([]interface
 	filtered := make([]interface{}, 0, len(entities))
 
 	mErr, ok := err.(appengine.MultiError)
+	// non-MultiError error does not have ErrFieldMismatch,
+	// ErrInvalidEntityType, and ErrNoSuchEntity, so we do not ignore.
 	if !ok {
-		if _, ok := err.(*datastore.ErrFieldMismatch); !ok {
-			return entities, err
-		}
-		log.Warningf(ctx, "err is ErrFieldMismatch, but ignore this: %v", err)
-		return filtered, nil
+		return entities, err
 	}
 
 	if len(entities) != len(mErr) {
