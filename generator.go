@@ -126,7 +126,7 @@ func process(ctx context.Context, o *Options, cur *datastore.Cursor) (bool, []in
 		} else if err != nil {
 			return false, entities, errors.WithStack(err)
 		}
-		entities = p.Append(ctx, entities, i, k)
+		entities = o.Appender(ctx, entities, i, k)
 	}
 
 	if !isDone {
