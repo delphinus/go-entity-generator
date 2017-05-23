@@ -86,18 +86,18 @@ func createSampleHoge(ctx context.Context) (*datastore.Key, error) {
 	return parentKey, nil
 }
 
-func testFetch(ctx context.Context, q *datastore.Query, parentKey *datastore.Key, expected int) error {
-	ch := New(ctx, &Options{
-		Appender: func(ctx context.Context, entities []interface{}, i int, k *datastore.Key, parentKey *datastore.Key) []interface{} {
-			return append(entities, &testHoge{
-				ID:     k.IntID(),
-				Parent: parentKey,
-			})
-		},
-		FetchLimit: fetchLimit,
-		ParentKey:  parentKey,
-		Query:      q,
-	})
+func testFetch(ctx context.Context, expected int, o *Options) error {
+	o.Appender = func(ctx context.Context, entities []interface{}, i int, k *datastore.Key, parentKey *datastore.Key) []interface{} {
+		return append(entities, &testHoge{
+			ID:     k.IntID(),
+			Parent: parentKey,
+		})
+	}
+	if o.FetchLimit == 0 {
+		o.FetchLimit = fetchLimit
+	}
+
+	ch := New(ctx, o)
 
 	count := 0
 	for unit := range ch {
@@ -133,7 +133,10 @@ func TestFetchAll(t *testing.T) {
 	}
 
 	q := datastore.NewQuery("testHoge").Ancestor(parentKey)
-	if err := testFetch(ctx, q, parentKey, allHoges); err != nil {
+	if err := testFetch(ctx, allHoges, &Options{
+		ParentKey: parentKey,
+		Query:     q,
+	}); err != nil {
 		t.Fatalf("error in testFetch: %+v", err)
 	}
 }
@@ -151,7 +154,10 @@ func TestFetchFuga(t *testing.T) {
 	}
 
 	q := datastore.NewQuery("testHoge").Ancestor(parentKey).Filter("Name =", "Fuga Hogeo")
-	if err := testFetch(ctx, q, parentKey, allFugas); err != nil {
+	if err := testFetch(ctx, allFugas, &Options{
+		ParentKey: parentKey,
+		Query:     q,
+	}); err != nil {
 		t.Fatalf("error in testFetch: %+v", err)
 	}
 }
