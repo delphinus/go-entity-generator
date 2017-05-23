@@ -7,7 +7,7 @@
 //    Name string `datastore:",noindex"`
 //  }
 //
-//  func appender(ctx context.Context, entities []interface{}, i int, k *datastore.Key) []interface{} {
+//  func appender(ctx context.Context, entities []interface{}, i int, k *datastore.Key, parentKey *datastore.Key) []interface{} {
 //    if k.IntID() == 0 {
 //      log.Warningf(ctx, "SomeItem{} needs int64 key. But items[%d] has a string key: %v", i, k.StringID())
 //    } else {
@@ -51,13 +51,16 @@ import (
 // Options is options for Generator
 type Options struct {
 	// Appender is needed to create entity for real.
-	Appender func(ctx context.Context, entities []interface{}, i int, k *datastore.Key) []interface{}
+	Appender func(ctx context.Context, entities []interface{}, i int, k *datastore.Key, parentKey *datastore.Key) []interface{}
 	// FetchLimit is a number of entities that a returned chunk has.  The
 	// default value is 100.
 	FetchLimit int
 	// IgnoreErrFieldMismatch means it ignore ErrFieldMismatch error in
 	// fetching.  And it logs that with log.Warnings() func.
 	IgnoreErrFieldMismatch bool
+	// ParentKey means the key of the parent entity that should be specified if
+	// needed.
+	ParentKey *datastore.Key
 	// Query is the query to execute.
 	Query *datastore.Query
 }
@@ -126,7 +129,7 @@ func process(ctx context.Context, o *Options, cur *datastore.Cursor) (bool, []in
 		} else if err != nil {
 			return false, entities, errors.WithStack(err)
 		}
-		entities = o.Appender(ctx, entities, i, k)
+		entities = o.Appender(ctx, entities, i, k, o.ParentKey)
 	}
 
 	if !isDone {
