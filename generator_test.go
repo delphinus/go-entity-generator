@@ -177,3 +177,25 @@ func TestFetchFuga(t *testing.T) {
 		t.Fatalf("error in testFetch: %+v", err)
 	}
 }
+
+func TestChangeFetchLimit(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+	defer cancel()
+
+	parentKey, err := createSampleHoge(ctx)
+	if err != nil {
+		t.Fatalf("error in createSampleHoge: %+v", err)
+	}
+
+	q := datastore.NewQuery("testHoge").Ancestor(parentKey).Filter("Name =", "Fuga Hogeo")
+	if err := testFetch(ctx, allFugas, &Options{
+		FetchLimit: 5,
+		ParentKey:  parentKey,
+		Query:      q,
+	}); err != nil {
+		t.Fatalf("error in testFetch: %+v", err)
+	}
+}
