@@ -7,13 +7,7 @@
 //    Name string `datastore:",noindex"`
 //  }
 //
-//  type process struct{}
-//
-//  func (p *process) Kind() {
-//    return "SomeItem"
-//  }
-//
-//  func (p *process) Append(ctx context.Context, entities []interface{}, i int, k *datastore.Key) []interface{} {
+//  func appender(ctx context.Context, entities []interface{}, i int, k *datastore.Key) []interface{} {
 //    if k.IntID() == 0 {
 //      log.Warningf(ctx, "SomeItem{} needs int64 key. But items[%d] has a string key: %v", i, k.StringID())
 //    } else {
@@ -26,7 +20,8 @@
 //    ctx, cancel := context.WithCancel(ctx)
 //
 //    ch := generator.New(ctx, &generator.Options{
-//      Processor: &process{},
+//      Appender: appender,
+//      Query:    datastore.NewQuery("SomeItem"),
 //    })
 //
 //    for unit := range {
@@ -55,25 +50,16 @@ import (
 
 // Options is options for Generator
 type Options struct {
-	// Processor is needed to create entity for real
-	Processor Processor
-	// IgnoreErrFieldMismatch means it ignore ErrFieldMismatch error in
-	// fetching.  And it logs that with log.Warnings() func.
-	IgnoreErrFieldMismatch bool
+	// Appender is needed to create entity for real.
+	Appender func(ctx context.Context, entities []interface{}, i int, k *datastore.Key) []interface{}
 	// FetchLimit is a number of entities that a returned chunk has.  The
 	// default value is 100.
 	FetchLimit int
-}
-
-// Processor means an interface for processing.
-//
-// This is needed for the feature such as `Generics`.  This package can manage
-// any Entity struct with Processor struct.
-type Processor interface {
-	// Kind should return Entity name such that goon.Kind() returns.
-	Kind() string
-	// Append should append() an entity to an array.
-	Append(ctx context.Context, entities []interface{}, i int, k *datastore.Key) []interface{}
+	// IgnoreErrFieldMismatch means it ignore ErrFieldMismatch error in
+	// fetching.  And it logs that with log.Warnings() func.
+	IgnoreErrFieldMismatch bool
+	// Query is the query to execute.
+	Query *datastore.Query
 }
 
 // Unit will be returned by generator
@@ -105,7 +91,7 @@ func New(ctx context.Context, o *Options) chan Unit {
 
 	loop:
 		for {
-			isDone, entities, err := process(ctx, o.Processor, o, cur)
+			isDone, entities, err := process(ctx, o, cur)
 
 			select {
 			case <-ctx.Done():
@@ -122,8 +108,8 @@ func New(ctx context.Context, o *Options) chan Unit {
 	return ch
 }
 
-func process(ctx context.Context, p Processor, o *Options, cur *datastore.Cursor) (bool, []interface{}, error) {
-	q := datastore.NewQuery(p.Kind()).KeysOnly()
+func process(ctx context.Context, o *Options, cur *datastore.Cursor) (bool, []interface{}, error) {
+	q := o.Query.KeysOnly()
 	if cur != nil {
 		q = q.Start(*cur)
 	}
