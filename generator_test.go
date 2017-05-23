@@ -86,18 +86,7 @@ func createSampleHoge(ctx context.Context) (*datastore.Key, error) {
 	return parentKey, nil
 }
 
-func TestFetchAll(t *testing.T) {
-	ctx, cancel, err := testServer()
-	if err != nil {
-		t.Fatalf("error in testServer: %v", err)
-	}
-	defer cancel()
-
-	parentKey, err := createSampleHoge(ctx)
-	if err != nil {
-		t.Fatalf("error in createSampleHoge: %v", err)
-	}
-
+func testFetch(ctx context.Context, q *datastore.Query, parentKey *datastore.Key, expected int) error {
 	ch := New(ctx, &Options{
 		Appender: func(ctx context.Context, entities []interface{}, i int, k *datastore.Key, parentKey *datastore.Key) []interface{} {
 			return append(entities, &testHoge{
@@ -107,25 +96,44 @@ func TestFetchAll(t *testing.T) {
 		},
 		FetchLimit: fetchLimit,
 		ParentKey:  parentKey,
-		Query:      datastore.NewQuery("testHoge").Ancestor(parentKey),
+		Query:      q,
 	})
 
 	count := 0
 	for unit := range ch {
 		if unit.Err != nil {
-			cancel()
-			t.Fatalf("error in unit: %+v", unit.Err)
+			return errors.Wrap(unit.Err, "error in unit")
 		}
 
 		for _, e := range unit.Entities {
 			if _, ok := e.(*testHoge); !ok {
-				t.Fatalf("e is not *testHoge: %+v", e)
+				return errors.Errorf("e is not *testHoge: %+v", e)
 			}
 			count++
 		}
 	}
 
-	if count != allHoges {
-		t.Fatalf("number differs => expected: %d, result: %d", allHoges, count)
+	if count != expected {
+		return errors.Errorf("number differs => expected: %d, result: %d", allHoges, count)
+	}
+
+	return nil
+}
+
+func TestFetchAll(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+	defer cancel()
+
+	parentKey, err := createSampleHoge(ctx)
+	if err != nil {
+		t.Fatalf("error in createSampleHoge: %+v", err)
+	}
+
+	q := datastore.NewQuery("testHoge").Ancestor(parentKey)
+	if err := testFetch(ctx, q, parentKey, allHoges); err != nil {
+		t.Fatalf("error in testFetch: %+v", err)
 	}
 }
