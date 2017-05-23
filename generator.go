@@ -94,7 +94,8 @@ func New(ctx context.Context, o *Options) chan Unit {
 
 	loop:
 		for {
-			isDone, entities, err := process(ctx, o, cur)
+			next, isDone, entities, err := process(ctx, o, cur)
+			cur = next
 
 			select {
 			case <-ctx.Done():
@@ -111,7 +112,7 @@ func New(ctx context.Context, o *Options) chan Unit {
 	return ch
 }
 
-func process(ctx context.Context, o *Options, cur *datastore.Cursor) (bool, []interface{}, error) {
+func process(ctx context.Context, o *Options, cur *datastore.Cursor) (*datastore.Cursor, bool, []interface{}, error) {
 	q := o.Query.KeysOnly()
 	if cur != nil {
 		q = q.Start(*cur)
@@ -127,36 +128,37 @@ func process(ctx context.Context, o *Options, cur *datastore.Cursor) (bool, []in
 			isDone = true
 			break
 		} else if err != nil {
-			return false, entities, errors.WithStack(err)
+			return nil, false, entities, errors.WithStack(err)
 		}
 		entities = o.Appender(ctx, entities, i, k, o.ParentKey)
 	}
 
+	var next *datastore.Cursor
 	if !isDone {
 		c, err := t.Cursor()
 		if err != nil {
-			return false, entities, errors.WithStack(err)
+			return nil, false, entities, errors.WithStack(err)
 		}
-		*cur = c
+		next = &c
 	}
 
 	if len(entities) == 0 {
-		return true, entities, nil
+		return next, true, entities, nil
 	}
 
 	if err := g.GetMulti(entities); err != nil {
 		if !o.IgnoreErrFieldMismatch {
-			return isDone, entities, errors.WithStack(err)
+			return next, isDone, entities, errors.WithStack(err)
 		}
 
 		filtered, err := filter(ctx, entities, err)
 		if err != nil {
-			return isDone, entities, errors.WithStack(err)
+			return next, isDone, entities, errors.WithStack(err)
 		}
 		entities = filtered
 	}
 
-	return isDone, entities, nil
+	return next, isDone, entities, nil
 }
 
 func filter(ctx context.Context, entities []interface{}, err error) ([]interface{}, error) {
