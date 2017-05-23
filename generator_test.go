@@ -72,7 +72,7 @@ func createSampleHoge(ctx context.Context) (*datastore.Key, error) {
 		return nil, errors.Wrap(err, "error in Put")
 	}
 
-	h := make([]*testHoge, 55)
+	h := make([]*testHoge, allHoges)
 	for i := range h {
 		name := ""
 		if i < allHoges-allFugas {
