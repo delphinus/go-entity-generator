@@ -20,6 +20,13 @@ type testHoge struct {
 	Name   string
 }
 
+type testOldHoge struct {
+	_kind   string         `goon:"kind,testHoge"`
+	ID      int64          `datastore:"-" goon:"id"`
+	Parent  *datastore.Key `datastore:"-" goon:"parent"`
+	OldName string
+}
+
 func testServer() (context.Context, context.CancelFunc, error) {
 	ctx, done, err := aetest.NewContext()
 	if err != nil {
@@ -83,6 +90,14 @@ func createSampleHoge(ctx context.Context) (*datastore.Key, error) {
 		return nil, errors.Wrap(err, "error in PutMulti")
 	}
 
+	oldHoge := testOldHoge{
+		OldName: "Old Hoge",
+		Parent:  parentKey,
+	}
+	if _, err := g.Put(&oldHoge); err != nil {
+		return nil, errors.Wrap(err, "error in Put")
+	}
+
 	return parentKey, nil
 }
 
@@ -134,8 +149,9 @@ func TestFetchAll(t *testing.T) {
 
 	q := datastore.NewQuery("testHoge").Ancestor(parentKey)
 	if err := testFetch(ctx, allHoges, &Options{
-		ParentKey: parentKey,
-		Query:     q,
+		IgnoreErrFieldMismatch: true,
+		ParentKey:              parentKey,
+		Query:                  q,
 	}); err != nil {
 		t.Fatalf("error in testFetch: %+v", err)
 	}
