@@ -1,16 +1,26 @@
 machine:
   environment:
+    GAE_PACKAGE: go_appengine_sdk_linux_amd64-1.9.48.zip
+    GODIST: go1.6.3.linux-amd64.tar.gz
     TEST_FILE: /tmp/test
     COVERAGE: /tmp/coverage.out
 
 dependencies:
   pre:
+    # set up GAE package
+    - curl -o $HOME/$GAE_PACKAGE https://storage.googleapis.com/appengine-sdks/featured/$GAE_PACKAGE
+    - unzip -q -d $HOME $HOME/$GAE_PACKAGE
+    # use downloaded Go instead of the buildt-in one
+    - curl -o $HOME/$GODIST https://storage.googleapis.com/golang/$GODIST
+    - sudo rm -rf /usr/local/go
+    - sudo tar -C /usr/local -xzf $HOME/$GODIST
+    # install needed tools
     - go get github.com/mattn/goveralls
     - go get github.com/jstemmer/go-junit-report
 
 test:
   override:
-    - set -o pipefail && go test -v -cover -race -coverprofile=$COVERAGE | tee -a $TEST_FILE
+    - set -o pipefail && $HOME/go_appengine/goapp test -v -cover -race -coverprofile=$COVERAGE | tee -a $TEST_FILE
   post:
     - mkdir -p $CIRCLE_TEST_REPORTS/golang
     - cat $TEST_FILE | go-junit-report > $CIRCLE_TEST_REPORTS/golang/junit.xml
