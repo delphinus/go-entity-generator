@@ -18,15 +18,15 @@
 //  func someFunc(w http.ResponseWriter, r *http.Request) {
 //    ctx := appengine.NewContext(r)
 //    ctx, cancel := context.WithCancel(ctx)
+//    defer cancel() // you should cancel before finishing.
 //
 //    ch := generator.New(ctx, &generator.Options{
 //      Appender: appender,
 //      Query:    datastore.NewQuery("SomeItem"),
 //    })
 //
-//    for unit := range {
+//    for unit := range ch {
 //      if unit.Err != nil {
-//        cancel() // you should cancel before finishing.
 //        panic(err)
 //      }
 //
