@@ -40,6 +40,8 @@
 package generator
 
 import (
+	"sync"
+
 	"github.com/mjibson/goon"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -52,9 +54,9 @@ import (
 type Options struct {
 	// Appender is needed to create entity for real.
 	Appender func(ctx context.Context, entities []interface{}, i int, k *datastore.Key, parentKey *datastore.Key) []interface{}
-	// FetchLimit is a number of entities that a returned chunk has.  The
+	// ChunkSize is a number of entities that a returned chunk has.  The
 	// default value is 100.
-	FetchLimit int
+	ChunkSize int
 	// IgnoreErrFieldMismatch means it ignore ErrFieldMismatch error in
 	// fetching.  And it logs that with log.Warnings() func.
 	IgnoreErrFieldMismatch bool
@@ -71,94 +73,123 @@ type Unit struct {
 	Err      error
 }
 
-const defaultFetchLimit = 100
+const defaultChunkSize = 100
 
 // New returns a channel that does as a generator to yield a chunk of entities
 // and an error if exists.  The number of entities in the chunk is specified by
-// FetchLimit in Options.
-func New(ctx context.Context, o *Options) chan Unit {
+// ChunkSize in Options.
+func New(ctx context.Context, o *Options) <-chan Unit {
 	if o == nil {
 		o = &Options{
-			FetchLimit: defaultFetchLimit,
+			ChunkSize: defaultChunkSize,
 		}
-	} else if o.FetchLimit == 0 {
-		o.FetchLimit = defaultFetchLimit
+	} else if o.ChunkSize == 0 {
+		o.ChunkSize = defaultChunkSize
 	}
 
-	ch := make(chan Unit)
+	in := query(ctx, o)
+	out := getMulti(ctx, in, o)
+
+	return out
+}
+
+func query(ctx context.Context, o *Options) <-chan Unit {
+	in := make(chan Unit)
 
 	go func() {
-		defer close(ch)
+		defer close(in)
 
 		var cur *datastore.Cursor
 
-	loop:
 		for {
-			next, isDone, entities, err := process(ctx, o, cur)
-			cur = next
+			q := o.Query.KeysOnly()
+			if cur != nil {
+				q = q.Start(*cur)
+			}
+
+			g := goon.FromContext(ctx)
+			t := g.Run(q)
+			isDone := false
+			entities := make([]interface{}, 0, o.ChunkSize)
+			for i := 0; i < o.ChunkSize; i++ {
+				k, err := t.Next(nil)
+				if err == datastore.Done {
+					isDone = true
+					break
+				} else if err != nil {
+					in <- Unit{nil, errors.WithStack(err)}
+					return
+				}
+				entities = o.Appender(ctx, entities, i, k, o.ParentKey)
+			}
+
+			if !isDone {
+				c, err := t.Cursor()
+				if err != nil {
+					in <- Unit{nil, errors.WithStack(err)}
+					return
+				}
+				cur = &c
+			}
 
 			select {
 			case <-ctx.Done():
-				break loop
+				return
 			default:
-				ch <- Unit{entities, err}
-				if err != nil || isDone {
-					break loop
+				in <- Unit{entities, nil}
+				if isDone {
+					return
 				}
 			}
 		}
 	}()
 
-	return ch
+	return in
 }
 
-func process(ctx context.Context, o *Options, cur *datastore.Cursor) (*datastore.Cursor, bool, []interface{}, error) {
-	q := o.Query.KeysOnly()
-	if cur != nil {
-		q = q.Start(*cur)
-	}
+func getMulti(ctx context.Context, in <-chan Unit, o *Options) <-chan Unit {
+	out := make(chan Unit)
 
-	g := goon.FromContext(ctx)
-	t := g.Run(q)
-	isDone := false
-	entities := make([]interface{}, 0, o.FetchLimit)
-	for i := 0; i < o.FetchLimit; i++ {
-		k, err := t.Next(nil)
-		if err == datastore.Done {
-			isDone = true
-			break
-		} else if err != nil {
-			return nil, false, entities, errors.WithStack(err)
+	go func() {
+		var wg sync.WaitGroup
+		defer func() {
+			wg.Wait()
+			close(out)
+		}()
+
+		for u := range in {
+			if u.Err != nil {
+				out <- Unit{nil, errors.WithStack(u.Err)}
+				return
+			}
+
+			wg.Add(1)
+			go func(u Unit) {
+				defer wg.Done()
+
+				g := goon.FromContext(ctx)
+				if err := g.GetMulti(u.Entities); err != nil {
+					if !o.IgnoreErrFieldMismatch {
+						out <- Unit{nil, errors.WithStack(err)}
+						return
+					}
+
+					filtered, err := filter(ctx, u.Entities, err)
+					if err != nil {
+						out <- Unit{nil, errors.WithStack(err)}
+						return
+					}
+
+					out <- Unit{filtered, nil}
+					return
+				}
+
+				out <- u
+			}(u)
 		}
-		entities = o.Appender(ctx, entities, i, k, o.ParentKey)
-	}
+	}()
 
-	var next *datastore.Cursor
-	if !isDone {
-		c, err := t.Cursor()
-		if err != nil {
-			return nil, false, entities, errors.WithStack(err)
-		}
-		next = &c
-	}
-
-	if len(entities) == 0 {
-		return next, true, entities, nil
-	}
-
-	if err := g.GetMulti(entities); err != nil {
-		if !o.IgnoreErrFieldMismatch {
-			return next, isDone, entities, errors.WithStack(err)
-		}
-
-		filtered, err := filter(ctx, entities, err)
-		if err != nil {
-			return next, isDone, entities, errors.WithStack(err)
-		}
-		entities = filtered
-	}
-
-	return next, isDone, entities, nil
+	return out
 }
 
 func filter(ctx context.Context, entities []interface{}, err error) ([]interface{}, error) {

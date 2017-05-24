@@ -61,7 +61,7 @@ func TestNew(t *testing.T) {
 
 const allHoges = 55
 const allFugas = 55 - 23
-const fetchLimit = 10
+const chunkSize = 10
 
 func createSampleHoge(ctx context.Context) (*datastore.Key, error) {
 	g := goon.FromContext(ctx)
@@ -108,8 +108,8 @@ func testFetch(ctx context.Context, expected int, o *Options) error {
 			Parent: parentKey,
 		})
 	}
-	if o.FetchLimit == 0 {
-		o.FetchLimit = fetchLimit
+	if o.ChunkSize == 0 {
+		o.ChunkSize = chunkSize
 	}
 
 	ch := New(ctx, o)
@@ -178,7 +178,7 @@ func TestFetchFuga(t *testing.T) {
 	}
 }
 
-func TestChangeFetchLimit(t *testing.T) {
+func TestChangeChunkSize(t *testing.T) {
 	ctx, cancel, err := testServer()
 	if err != nil {
 		t.Fatalf("error in testServer: %+v", err)
@@ -192,9 +192,9 @@ func TestChangeFetchLimit(t *testing.T) {
 
 	q := datastore.NewQuery("testHoge").Ancestor(parentKey).Filter("Name =", "Fuga Hogeo")
 	if err := testFetch(ctx, allFugas, &Options{
-		FetchLimit: 5,
-		ParentKey:  parentKey,
-		Query:      q,
+		ChunkSize: 5,
+		ParentKey: parentKey,
+		Query:     q,
 	}); err != nil {
 		t.Fatalf("error in testFetch: %+v", err)
 	}
