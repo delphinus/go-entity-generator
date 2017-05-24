@@ -109,7 +109,9 @@ func appender(ctx context.Context, entities []interface{}, i int, k *datastore.K
 }
 
 func testFetch(ctx context.Context, expected int, o *Options) error {
-	o.Appender = appender
+	if o.Appender == nil {
+		o.Appender = appender
+	}
 	if o.ChunkSize == 0 {
 		o.ChunkSize = chunkSize
 	}
@@ -220,4 +222,29 @@ func TestNoQuery(t *testing.T) {
 	defer cancel()
 
 	_ = New(ctx, &Options{ChunkSize: 5})
+}
+
+func TestIgnoreAll(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+	defer cancel()
+
+	parentKey, err := createSampleHoge(ctx)
+	if err != nil {
+		t.Fatalf("error in createSampleHoge: %+v", err)
+	}
+
+	q := datastore.NewQuery("testHoge").Ancestor(parentKey)
+	if err := testFetch(ctx, 0, &Options{
+		Appender: func(ctx context.Context, entities []interface{}, i int, k *datastore.Key, parentKey *datastore.Key) []interface{} {
+			return []interface{}{}
+		},
+		IgnoreErrFieldMismatch: true,
+		ParentKey:              parentKey,
+		Query:                  q,
+	}); err != nil {
+		t.Fatalf("error in testFetch: %+v", err)
+	}
 }

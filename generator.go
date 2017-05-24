@@ -174,6 +174,11 @@ func getMulti(ctx context.Context, in <-chan Unit, o *Options) <-chan Unit {
 			go func(u Unit) {
 				defer wg.Done()
 
+				if len(u.Entities) == 0 {
+					out <- Unit{u.Entities, nil}
+					return
+				}
+
 				g := goon.FromContext(ctx)
 				if err := g.GetMulti(u.Entities); err != nil {
 					if !o.IgnoreErrFieldMismatch {
