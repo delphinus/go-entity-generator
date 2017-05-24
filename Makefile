@@ -10,5 +10,5 @@ test: ## Run tests only
 	go test $(OPT)
 
 test-coverage: ## Run tests and show coverage in browser
-	go test -v -coverprofile=$(COVERAGE) -covermode=count
+	goapp test -v -coverprofile=$(COVERAGE) -covermode=count
 	go tool cover -html=$(COVERAGE)
