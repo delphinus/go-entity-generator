@@ -54,9 +54,9 @@ import (
 type Options struct {
 	// Appender is needed to create entity for real.
 	Appender func(ctx context.Context, entities []interface{}, i int, k *datastore.Key, parentKey *datastore.Key) []interface{}
-	// FetchLimit is a number of entities that a returned chunk has.  The
+	// ChunkSize is a number of entities that a returned chunk has.  The
 	// default value is 100.
-	FetchLimit int
+	ChunkSize int
 	// IgnoreErrFieldMismatch means it ignore ErrFieldMismatch error in
 	// fetching.  And it logs that with log.Warnings() func.
 	IgnoreErrFieldMismatch bool
@@ -73,18 +73,18 @@ type Unit struct {
 	Err      error
 }
 
-const defaultFetchLimit = 100
+const defaultChunkSize = 100
 
 // New returns a channel that does as a generator to yield a chunk of entities
 // and an error if exists.  The number of entities in the chunk is specified by
-// FetchLimit in Options.
+// ChunkSize in Options.
 func New(ctx context.Context, o *Options) <-chan Unit {
 	if o == nil {
 		o = &Options{
-			FetchLimit: defaultFetchLimit,
+			ChunkSize: defaultChunkSize,
 		}
-	} else if o.FetchLimit == 0 {
-		o.FetchLimit = defaultFetchLimit
+	} else if o.ChunkSize == 0 {
+		o.ChunkSize = defaultChunkSize
 	}
 
 	in := query(ctx, o)
@@ -110,8 +110,8 @@ func query(ctx context.Context, o *Options) <-chan Unit {
 			g := goon.FromContext(ctx)
 			t := g.Run(q)
 			isDone := false
-			entities := make([]interface{}, 0, o.FetchLimit)
-			for i := 0; i < o.FetchLimit; i++ {
+			entities := make([]interface{}, 0, o.ChunkSize)
+			for i := 0; i < o.ChunkSize; i++ {
 				k, err := t.Next(nil)
 				if err == datastore.Done {
 					isDone = true
