@@ -82,9 +82,14 @@ func New(ctx context.Context, o *Options) <-chan Unit {
 	if o == nil {
 		o = &Options{
 			ChunkSize: defaultChunkSize,
+			Query:     datastore.NewQuery("__DUMMY__"),
 		}
+		log.Warningf(ctx, "set dummy query")
 	} else if o.ChunkSize == 0 {
 		o.ChunkSize = defaultChunkSize
+	} else if o.Query == nil {
+		o.Query = datastore.NewQuery("__DUMMY__")
+		log.Warningf(ctx, "set dummy query")
 	}
 
 	in := query(ctx, o)
@@ -120,7 +125,9 @@ func query(ctx context.Context, o *Options) <-chan Unit {
 					in <- Unit{nil, errors.WithStack(err)}
 					return
 				}
-				entities = o.Appender(ctx, entities, i, k, o.ParentKey)
+				if o.Appender != nil {
+					entities = o.Appender(ctx, entities, i, k, o.ParentKey)
+				}
 			}
 
 			if !isDone {

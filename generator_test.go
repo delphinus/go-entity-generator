@@ -101,13 +101,15 @@ func createSampleHoge(ctx context.Context) (*datastore.Key, error) {
 	return parentKey, nil
 }
 
+func appender(ctx context.Context, entities []interface{}, i int, k *datastore.Key, parentKey *datastore.Key) []interface{} {
+	return append(entities, &testHoge{
+		ID:     k.IntID(),
+		Parent: parentKey,
+	})
+}
+
 func testFetch(ctx context.Context, expected int, o *Options) error {
-	o.Appender = func(ctx context.Context, entities []interface{}, i int, k *datastore.Key, parentKey *datastore.Key) []interface{} {
-		return append(entities, &testHoge{
-			ID:     k.IntID(),
-			Parent: parentKey,
-		})
-	}
+	o.Appender = appender
 	if o.ChunkSize == 0 {
 		o.ChunkSize = chunkSize
 	}
@@ -198,4 +200,24 @@ func TestChangeChunkSize(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("error in testFetch: %+v", err)
 	}
+}
+
+func TestNoOptions(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+	defer cancel()
+
+	_ = New(ctx, nil)
+}
+
+func TestNoQuery(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+	defer cancel()
+
+	_ = New(ctx, &Options{ChunkSize: 5})
 }
