@@ -220,7 +220,7 @@ func filter(ctx context.Context, entities []interface{}, err error) ([]interface
 
 	if len(entities) != len(mErr) {
 		log.Warningf(ctx, "MultiError has different length => len(entities): %d, len(mErr): %d", len(entities), len(mErr))
-		return filtered, nil
+		return entities, err
 	}
 
 	for i := 0; i < len(entities); i++ {
