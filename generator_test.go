@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -294,5 +295,71 @@ func TestCatchErrFieldMismatch(t *testing.T) {
 
 	if !found {
 		t.Fatalf("ErrFieldMismatch is not found")
+	}
+}
+
+func TestFilterNoEntities(t *testing.T) {
+	ctx := context.Background()
+	someEntities := []interface{}{}
+	someEntitiesStr := fmt.Sprintf("%s", someEntities)
+	var someErr error
+
+	entities, err := filter(ctx, someEntities, someErr)
+	entitiesStr := fmt.Sprintf("%s", entities)
+	if someEntitiesStr != entitiesStr || someErr != err {
+		t.Fatalf("entities or err differs")
+	}
+}
+
+func TestFilterInvalidError(t *testing.T) {
+	ctx := context.Background()
+	someEntities := []interface{}{1}
+	someEntitiesStr := fmt.Sprintf("%s", someEntities)
+	someErr := errors.New("hoge error")
+
+	entities, err := filter(ctx, someEntities, someErr)
+	entitiesStr := fmt.Sprintf("%s", entities)
+	if someEntitiesStr != entitiesStr || someErr != err {
+		t.Fatalf("entities or err differs")
+	}
+}
+
+func TestFilterInvalidMultiErrorWithDifferentLength(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+	defer cancel()
+
+	someEntities := []interface{}{1, 2, 3}
+	someEntitiesStr := fmt.Sprintf("%s", someEntities)
+	someErr := appengine.MultiError([]error{errors.New("hoge error")})
+	someErrStr := fmt.Sprintf("%s", someErr)
+
+	entities, err := filter(ctx, someEntities, someErr)
+	entitiesStr := fmt.Sprintf("%s", entities)
+	errStr := fmt.Sprintf("%s", err)
+	if someEntitiesStr != entitiesStr || someErrStr != errStr {
+		t.Fatalf("entities or err differs")
+	}
+}
+
+func TestFilterInvalidMultiErrorWithSameLength(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+	defer cancel()
+
+	someEntities := []interface{}{1}
+	someEntitiesStr := fmt.Sprintf("%s", someEntities)
+	someErr := appengine.MultiError([]error{errors.New("hoge error")})
+	someErrStr := fmt.Sprintf("%s", someErr)
+
+	entities, err := filter(ctx, someEntities, someErr)
+	entitiesStr := fmt.Sprintf("%s", entities)
+	errStr := fmt.Sprintf("%s", err)
+	if someEntitiesStr != entitiesStr || someErrStr != errStr {
+		t.Fatalf("entities or err differs")
 	}
 }
