@@ -1,11 +1,13 @@
 package generator
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/mjibson/goon"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
+	"google.golang.org/appengine"
 	"google.golang.org/appengine/aetest"
 	"google.golang.org/appengine/datastore"
 )
@@ -246,5 +248,51 @@ func TestIgnoreAll(t *testing.T) {
 		Query:                  q,
 	}); err != nil {
 		t.Fatalf("error in testFetch: %+v", err)
+	}
+}
+
+func TestCatchErrFieldMismatch(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+	defer cancel()
+
+	parentKey, err := createSampleHoge(ctx)
+	if err != nil {
+		t.Fatalf("error in createSampleHoge: %+v", err)
+	}
+
+	q := datastore.NewQuery("testHoge").Ancestor(parentKey)
+	err = testFetch(ctx, 0, &Options{
+		ParentKey: parentKey,
+		Query:     q,
+	})
+
+	if err == nil {
+		t.Fatalf("no error in testFetch")
+	}
+
+	err = errors.Cause(err)
+	mErr, ok := err.(appengine.MultiError)
+	if !ok {
+		t.Fatalf("err is not MultiError: %+v", err)
+	}
+
+	found := false
+	for _, e := range mErr {
+		if e == nil {
+			continue
+		}
+		ty := reflect.TypeOf(e).String()
+		expected := reflect.TypeOf(&datastore.ErrFieldMismatch{}).String()
+		if ty != expected {
+			t.Fatalf("type: %s, expected: %s", ty, expected)
+		}
+		found = true
+	}
+
+	if !found {
+		t.Fatalf("ErrFieldMismatch is not found")
 	}
 }
