@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/mjibson/goon"
@@ -361,5 +362,48 @@ func TestFilterInvalidMultiErrorWithSameLength(t *testing.T) {
 	errStr := fmt.Sprintf("%s", err)
 	if someEntitiesStr != entitiesStr || someErrStr != errStr {
 		t.Fatalf("entities or err differs")
+	}
+}
+
+func TestGetMultiWithInvalidError(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+	defer cancel()
+
+	in := make(chan Unit)
+	out := getMulti(ctx, in, &Options{IgnoreErrFieldMismatch: true})
+
+	in <- Unit{[]interface{}{1}, nil}
+	u := <-out
+
+	errStr := fmt.Sprintf("%s", errors.Cause(u.Err))
+	if u.Entities != nil || !strings.Contains(errStr, "goon: Expected struct, got instead:") {
+		t.Fatalf("entities or err differs")
+	}
+}
+
+func TestQueryWithCancelled(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+
+	parentKey, err := createSampleHoge(ctx)
+	if err != nil {
+		t.Fatalf("error in createSampleHoge: %+v", err)
+	}
+
+	q := datastore.NewQuery("testHoge").Ancestor(parentKey)
+	in := query(ctx, &Options{
+		Query: q,
+	})
+
+	<-in
+	cancel()
+
+	if _, ok := <-in; ok {
+		t.Fatalf("in has not been closed")
 	}
 }
