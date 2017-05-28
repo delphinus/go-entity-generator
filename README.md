@@ -1,8 +1,8 @@
 # go-entity-generator
 
-[![GoDoc](https://godoc.org/github.com/delphinus/go-entity-generator?status.svg)](https://godoc.org/github.com/delphinus/go-entity-generator)
 [![CircleCI](https://circleci.com/gh/delphinus/go-entity-generator.svg?style=svg)](https://circleci.com/gh/delphinus/go-entity-generator)
 [![Coverage Status](https://coveralls.io/repos/github/delphinus/go-entity-generator/badge.svg?branch=master)](https://coveralls.io/github/delphinus/go-entity-generator?branch=master)
+[![GoDoc](https://godoc.org/github.com/delphinus/go-entity-generator?status.svg)](https://godoc.org/github.com/delphinus/go-entity-generator)
 
 Generator to yield all entities from Datastore.
 
