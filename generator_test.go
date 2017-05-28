@@ -1,11 +1,15 @@
 package generator
 
 import (
+	"fmt"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/mjibson/goon"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
+	"google.golang.org/appengine"
 	"google.golang.org/appengine/aetest"
 	"google.golang.org/appengine/datastore"
 )
@@ -246,5 +250,160 @@ func TestIgnoreAll(t *testing.T) {
 		Query:                  q,
 	}); err != nil {
 		t.Fatalf("error in testFetch: %+v", err)
+	}
+}
+
+func TestCatchErrFieldMismatch(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+	defer cancel()
+
+	parentKey, err := createSampleHoge(ctx)
+	if err != nil {
+		t.Fatalf("error in createSampleHoge: %+v", err)
+	}
+
+	q := datastore.NewQuery("testHoge").Ancestor(parentKey)
+	err = testFetch(ctx, 0, &Options{
+		ParentKey: parentKey,
+		Query:     q,
+	})
+
+	if err == nil {
+		t.Fatalf("no error in testFetch")
+	}
+
+	err = errors.Cause(err)
+	mErr, ok := err.(appengine.MultiError)
+	if !ok {
+		t.Fatalf("err is not MultiError: %+v", err)
+	}
+
+	found := false
+	for _, e := range mErr {
+		if e == nil {
+			continue
+		}
+		ty := reflect.TypeOf(e).String()
+		expected := reflect.TypeOf(&datastore.ErrFieldMismatch{}).String()
+		if ty != expected {
+			t.Fatalf("type: %s, expected: %s", ty, expected)
+		}
+		found = true
+	}
+
+	if !found {
+		t.Fatalf("ErrFieldMismatch is not found")
+	}
+}
+
+func TestFilterNoEntities(t *testing.T) {
+	ctx := context.Background()
+	someEntities := []interface{}{}
+	someEntitiesStr := fmt.Sprintf("%s", someEntities)
+	var someErr error
+
+	entities, err := filter(ctx, someEntities, someErr)
+	entitiesStr := fmt.Sprintf("%s", entities)
+	if someEntitiesStr != entitiesStr || someErr != err {
+		t.Fatalf("entities or err differs")
+	}
+}
+
+func TestFilterInvalidError(t *testing.T) {
+	ctx := context.Background()
+	someEntities := []interface{}{1}
+	someEntitiesStr := fmt.Sprintf("%s", someEntities)
+	someErr := errors.New("hoge error")
+
+	entities, err := filter(ctx, someEntities, someErr)
+	entitiesStr := fmt.Sprintf("%s", entities)
+	if someEntitiesStr != entitiesStr || someErr != err {
+		t.Fatalf("entities or err differs")
+	}
+}
+
+func TestFilterInvalidMultiErrorWithDifferentLength(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+	defer cancel()
+
+	someEntities := []interface{}{1, 2, 3}
+	someEntitiesStr := fmt.Sprintf("%s", someEntities)
+	someErr := appengine.MultiError([]error{errors.New("hoge error")})
+	someErrStr := fmt.Sprintf("%s", someErr)
+
+	entities, err := filter(ctx, someEntities, someErr)
+	entitiesStr := fmt.Sprintf("%s", entities)
+	errStr := fmt.Sprintf("%s", err)
+	if someEntitiesStr != entitiesStr || someErrStr != errStr {
+		t.Fatalf("entities or err differs")
+	}
+}
+
+func TestFilterInvalidMultiErrorWithSameLength(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+	defer cancel()
+
+	someEntities := []interface{}{1}
+	someEntitiesStr := fmt.Sprintf("%s", someEntities)
+	someErr := appengine.MultiError([]error{errors.New("hoge error")})
+	someErrStr := fmt.Sprintf("%s", someErr)
+
+	entities, err := filter(ctx, someEntities, someErr)
+	entitiesStr := fmt.Sprintf("%s", entities)
+	errStr := fmt.Sprintf("%s", err)
+	if someEntitiesStr != entitiesStr || someErrStr != errStr {
+		t.Fatalf("entities or err differs")
+	}
+}
+
+func TestGetMultiWithInvalidError(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+	defer cancel()
+
+	in := make(chan Unit)
+	out := getMulti(ctx, in, &Options{IgnoreErrFieldMismatch: true})
+
+	in <- Unit{[]interface{}{1}, nil}
+	u := <-out
+
+	errStr := fmt.Sprintf("%s", errors.Cause(u.Err))
+	if u.Entities != nil || !strings.Contains(errStr, "goon: Expected struct, got instead:") {
+		t.Fatalf("entities or err differs")
+	}
+}
+
+func TestQueryWithCancelled(t *testing.T) {
+	ctx, cancel, err := testServer()
+	if err != nil {
+		t.Fatalf("error in testServer: %+v", err)
+	}
+
+	parentKey, err := createSampleHoge(ctx)
+	if err != nil {
+		t.Fatalf("error in createSampleHoge: %+v", err)
+	}
+
+	q := datastore.NewQuery("testHoge").Ancestor(parentKey)
+	in := query(ctx, &Options{
+		Query: q,
+	})
+
+	<-in
+	cancel()
+
+	if _, ok := <-in; ok {
+		t.Fatalf("in has not been closed")
 	}
 }
