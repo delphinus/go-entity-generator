@@ -1,8 +1,8 @@
 # go-entity-generator
 
-[![GoDoc](https://godoc.org/github.com/delphinus/go-entity-generator?status.svg)](https://godoc.org/github.com/delphinus/go-entity-generator)
 [![CircleCI](https://circleci.com/gh/delphinus/go-entity-generator.svg?style=svg)](https://circleci.com/gh/delphinus/go-entity-generator)
 [![Coverage Status](https://coveralls.io/repos/github/delphinus/go-entity-generator/badge.svg?branch=master)](https://coveralls.io/github/delphinus/go-entity-generator?branch=master)
+[![GoDoc](https://godoc.org/github.com/delphinus/go-entity-generator?status.svg)](https://godoc.org/github.com/delphinus/go-entity-generator)
 
 Generator to yield all entities from Datastore.
 
@@ -19,9 +19,9 @@ type SomeItem struct {
 func appender(ctx context.Context, entities []interface{}, i int, k *datastore.Key, parentKey *datastore.Key) []interface{} {
   if k.IntID() == 0 {
     log.Warningf(ctx, "SomeItem{} needs int64 key. But items[%d] has a string key: %v", i, k.StringID())
-  } else {
-    entities = append(entities, &SomeItem{ID: k.IntID()})
+    return entities
   }
+  return append(entities, &SomeItem{ID: k.IntID()})
 }
 
 func someFunc(w http.ResponseWriter, r *http.Request) {
