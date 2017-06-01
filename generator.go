@@ -50,10 +50,13 @@ import (
 	"google.golang.org/appengine/log"
 )
 
+// Appender is needed to create entity for real.
+type Appender func(ctx context.Context, entities []interface{}, i int, k *datastore.Key, parentKey *datastore.Key) []interface{}
+
 // Options is options for Generator
 type Options struct {
 	// Appender is needed to create entity for real.
-	Appender func(ctx context.Context, entities []interface{}, i int, k *datastore.Key, parentKey *datastore.Key) []interface{}
+	Appender Appender
 	// ChunkSize is a number of entities that a returned chunk has.  The
 	// default value is 100.
 	ChunkSize int
